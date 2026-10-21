@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REC Virtual Computer Typing Practice</title>
+<style>
+  :root { font-family: Arial, sans-serif; color: #172033; background: #eef2f7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 18px; }
+  .app { max-width: 1000px; margin: auto; }
+  h1 { margin: 0 0 6px; font-size: clamp(22px, 4vw, 32px); }
+  .hint { margin: 0 0 16px; color: #475569; line-height: 1.45; }
+  .monitor { background: #252a34; padding: 14px; border-radius: 14px 14px 8px 8px; box-shadow: 0 8px 20px #0002; }
+  .screen { background: white; border-radius: 4px; min-height: 250px; overflow: hidden; }
+  .titlebar { background: #185abd; color: white; padding: 9px 12px; font-size: 14px; }
+  .ribbon { background: #f3f5f8; border-bottom: 1px solid #d7dce4; padding: 9px 12px; color: #374151; font-size: 13px; }
+  .document { min-height: 200px; padding: 20px; }
+  #typedText { width: 100%; min-height: 155px; border: 1px dashed #c4ccd8; padding: 12px; resize: vertical; font: 20px/1.6 Calibri, Arial, sans-serif; color: #111827; outline-color: #2563eb; }
+  .monitor-neck { width: 90px; height: 24px; background: #555d6a; margin: auto; }
+  .monitor-base { width: 180px; height: 12px; background: #555d6a; border-radius: 8px 8px 3px 3px; margin: auto auto 18px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  button { cursor: pointer; border: 1px solid #b8c3d3; border-radius: 7px; padding: 9px 12px; background: white; color: #172033; font-weight: 600; }
+  button:hover { background: #e5efff; }
+  .keyboard { background: #d6dbe3; border: 1px solid #b7c0ce; padding: 12px; border-radius: 12px; box-shadow: 0 5px 0 #a8b1bf; }
+  .row { display: flex; justify-content: center; gap: 5px; margin: 5px 0; }
+  .key { min-width: 38px; height: 42px; padding: 0 8px; background: #fff; box-shadow: 0 3px 0 #b9c1cc; border: 1px solid #c5ccd6; border-radius: 6px; font-size: 14px; }
+  .key:active { transform: translateY(2px); box-shadow: 0 1px 0 #b9c1cc; }
+  .wide { min-width: 70px; } .space { flex: 1; max-width: 300px; } .enter { min-width: 76px; }
+  .task { margin-top: 16px; padding: 14px; background: #fff; border: 1px solid #d9e1ec; border-radius: 10px; line-height: 1.6; }
+  .task strong { color: #1454a3; }
+  .status { min-height: 22px; font-size: 14px; color: #17603a; margin-top: 8px; }
+  @media(max-width: 600px) { body { padding: 9px; } .key { min-width: 24px; height: 38px; padding: 0 4px; font-size: 12px; } .row { gap: 3px; } .wide { min-width: 44px; } .enter { min-width: 48px; } .document { padding: 10px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>REC Virtual Computer — Typing Practice</h1>
+  <p class="hint">Click inside the document, then click the on-screen keys below. You can also type with your physical keyboard. This is a practice simulator, not Microsoft Word.</p>
+  <div class="monitor">
+    <div class="screen">
+      <div class="titlebar">Document — Word Practice (simulation)</div>
+      <div class="ribbon">File　 Home　 Insert　 Layout　 Review <span style="float:right">Font: Calibri　 Size: 20</span></div>
+      <div class="document">
+        <textarea id="typedText" aria-label="Typing document" placeholder="Click here, then type A B C D..."></textarea>
+      </div>
+    </div>
+  </div>
+  <div class="monitor-neck"></div><div class="monitor-base"></div>
+  <div class="controls">
+    <button id="taskBtn">Show typing task</button>
+    <button id="backspaceBtn">⌫ Backspace</button>
+    <button id="enterBtn">↵ Enter</button>
+    <button id="clearBtn">Clear document</button>
+    <button id="saveBtn">Save as .txt</button>
+  </div>
+  <div class="keyboard" aria-label="Clickable virtual keyboard">
+    <div class="row" data-row="numbers"></div>
+    <div class="row" data-row="qwerty"></div>
+    <div class="row" data-row="asdf"></div>
+    <div class="row" data-row="zxcv"></div>
+    <div class="row">
+      <button class="key wide" data-action="shift">Shift</button>
+      <button class="key space" data-key=" ">Space</button>
+      <button class="key wide" data-action="backspace">⌫</button>
+      <button class="key enter" data-action="enter">Enter</button>
+    </div>
+  </div>
+  <div class="task"><strong>Practice task:</strong> Type <code>ABC</code>, press Enter, then type <code>My name is Ravi.</code> Use Backspace to correct a mistake, then choose <strong>Save as .txt</strong>.</div>
+  <div id="status" class="status" role="status"></div>
+</div>
+<script>
+const input = document.getElementById('typedText');
+const status = document.getElementById('status');
+let shiftOn = false;
+const rows = [
+  ['numbers', ['1','2','3','4','5','6','7','8','9','0','-','=']],
+  ['qwerty', ['q','w','e','r','t','y','u','i','o','p']],
+  ['asdf', ['a','s','d','f','g','h','j','k','l']],
+  ['zxcv', ['z','x','c','v','b','n','m',',','.']]
+];
+for (const [rowName, keys] of rows) {
+  const row = document.querySelector(`[data-row="${rowName}"]`);
+  keys.forEach(k => {
+    const b = document.createElement('button');
+    b.className = 'key';
+    b.textContent = k;
+    b.dataset.key = k;
+    b.type = 'button';
+    row.appendChild(b);
+  });
+  if (rowName === 'qwerty') {
+    const b = document.createElement('button'); b.className='key wide'; b.textContent='⌫'; b.dataset.action='backspace'; row.prepend(b);
+  }
+  if (rowName === 'asdf') {
+    const b = document.createElement('button'); b.className='key wide'; b.textContent='Caps'; b.dataset.action='caps'; row.prepend(b);
+  }
+  if (rowName === 'zxcv') {
+    const b = document.createElement('button'); b.className='key wide'; b.textContent='Shift'; b.dataset.action='shift'; row.prepend(b);
+  }
+}
+function insertText(text) {
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.setRangeText(text, start, end, 'end');
+  input.focus();
+}
+function backspace() {
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  if (start !== end) input.setRangeText('', start, end, 'end');
+  else if (start > 0) input.setRangeText('', start - 1, start, 'end');
+  input.focus();
+}
+document.querySelector('.keyboard').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const action = b.dataset.action;
+  if (action === 'backspace') backspace();
+  else if (action === 'enter') insertText('\n');
+  else if (action === 'shift') { shiftOn = !shiftOn; status.textContent = shiftOn ? 'Shift on: next letter will be uppercase.' : 'Shift off.'; }
+  else if (action === 'caps') { shiftOn = !shiftOn; status.textContent = shiftOn ? 'Caps Lock on (simulated).' : 'Caps Lock off.'; }
+  else if (b.dataset.key !== undefined) {
+    let val = b.dataset.key;
+    if (shiftOn && /^[a-z]$/.test(val)) val = val.toUpperCase();
+    insertText(val);
+    if (shiftOn) shiftOn = false;
+  }
+});
+document.getElementById('backspaceBtn').onclick = backspace;
+document.getElementById('enterBtn').onclick = () => insertText('\n');
+document.getElementById('clearBtn').onclick = () => { input.value=''; input.focus(); status.textContent='Document cleared.'; };
+document.getElementById('taskBtn').onclick = () => { status.textContent='Task: type ABC, press Enter, then type My name is Ravi.'; input.focus(); };
+document.getElementById('saveBtn').onclick = () => {
+  const blob = new Blob([input.value], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='typing-practice.txt'; a.click();
+  URL.revokeObjectURL(url); status.textContent='Downloaded typing-practice.txt';
+};
+</script>
+</body>
+</html>
